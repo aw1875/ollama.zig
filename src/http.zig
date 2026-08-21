@@ -93,10 +93,18 @@ fn newArena(allocator: std.mem.Allocator) !*std.heap.ArenaAllocator {
     return arena;
 }
 
+/// Frees an arena and the struct backing it. `arena.deinit()` alone frees the
+/// arena's contents but leaks the struct `newArena` allocated.
+fn destroyArena(arena: *std.heap.ArenaAllocator) void {
+    const child = arena.child_allocator;
+    arena.deinit();
+    child.destroy(arena);
+}
+
 /// Performs a GET request and buffers the response body.
 pub fn get(self: *HttpClient, comptime T: type, url: []const u8) !Response(T) {
     const arena = try newArena(self.allocator);
-    errdefer arena.deinit();
+    errdefer destroyArena(arena);
 
     var bw: std.Io.Writer.Allocating = .init(arena.allocator());
 
@@ -120,7 +128,7 @@ pub fn get(self: *HttpClient, comptime T: type, url: []const u8) !Response(T) {
 /// Performs a POST request with a JSON body and buffers the response body.
 pub fn post(self: *HttpClient, comptime T: type, url: []const u8, body: []const u8) !Response(T) {
     const arena = try newArena(self.allocator);
-    errdefer arena.deinit();
+    errdefer destroyArena(arena);
 
     var bw: std.Io.Writer.Allocating = .init(arena.allocator());
 
@@ -146,7 +154,7 @@ pub fn post(self: *HttpClient, comptime T: type, url: []const u8, body: []const 
 /// Performs a DELETE request with a JSON body and buffers the response body.
 pub fn del(self: *HttpClient, comptime T: type, url: []const u8, body: []const u8) !Response(T) {
     const arena = try newArena(self.allocator);
-    errdefer arena.deinit();
+    errdefer destroyArena(arena);
 
     var bw: std.Io.Writer.Allocating = .init(arena.allocator());
 
@@ -173,7 +181,7 @@ pub fn del(self: *HttpClient, comptime T: type, url: []const u8, body: []const u
 /// and parsed as newline-delimited JSON.
 pub fn postStream(self: *HttpClient, comptime T: type, url: []const u8, body: []u8) !ResponseStream(T) {
     const arena = try newArena(self.allocator);
-    errdefer arena.deinit();
+    errdefer destroyArena(arena);
 
     const a = arena.allocator();
 
