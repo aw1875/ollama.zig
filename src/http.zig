@@ -205,3 +205,49 @@ pub fn postStream(self: *HttpClient, comptime T: type, url: []const u8, body: []
         .body_reader = body_reader,
     };
 }
+
+test "Response.body parses JSON into the target type" {
+    const allocator = std.testing.allocator;
+
+    const arena = try allocator.create(std.heap.ArenaAllocator);
+    arena.* = .init(allocator);
+
+    const raw = try arena.allocator().dupe(u8, "{\"model\":\"llama3.2\",\"response\":\"hello\",\"done\":true}");
+
+    var response: Response(struct {
+        model: []const u8,
+        response: []const u8,
+        done: bool,
+    }) = .{
+        .arena = arena,
+        .status = .ok,
+        .raw = raw,
+    };
+    defer response.deinit();
+
+    const body = try response.body();
+    try std.testing.expectEqualStrings("llama3.2", body.model);
+    try std.testing.expectEqualStrings("hello", body.response);
+    try std.testing.expect(body.done);
+}
+
+test "Response.body ignores unknown fields" {
+    const allocator = std.testing.allocator;
+
+    const arena = try allocator.create(std.heap.ArenaAllocator);
+    arena.* = .init(allocator);
+
+    const raw = try arena.allocator().dupe(u8, "{\"model\":\"llama3.2\",\"unknown_field\":123}");
+
+    var response: Response(struct {
+        model: []const u8,
+    }) = .{
+        .arena = arena,
+        .status = .ok,
+        .raw = raw,
+    };
+    defer response.deinit();
+
+    const body = try response.body();
+    try std.testing.expectEqualStrings("llama3.2", body.model);
+}

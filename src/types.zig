@@ -747,3 +747,102 @@ pub const WebFetchResponse = struct {
     /// Links found on the page.
     links: []const []const u8 = &.{},
 };
+
+fn stringify(value: anytype, allocator: std.mem.Allocator) ![]u8 {
+    var aw: std.Io.Writer.Allocating = .init(allocator);
+    defer aw.deinit();
+
+    var s: std.json.Stringify = .{
+        .writer = &aw.writer,
+        .options = .{ .emit_null_optional_fields = false },
+    };
+    try s.write(value);
+
+    return try aw.toOwnedSlice();
+}
+
+test "ThinkOption serializes to a bare boolean" {
+    const allocator = std.testing.allocator;
+
+    const json = try stringify(ThinkOption{ .bool = true }, allocator);
+    defer allocator.free(json);
+    try std.testing.expectEqualStrings("true", json);
+}
+
+test "ThinkOption serializes to a bare string" {
+    const allocator = std.testing.allocator;
+
+    const json = try stringify(ThinkOption{ .string = .high }, allocator);
+    defer allocator.free(json);
+    try std.testing.expectEqualStrings("\"high\"", json);
+}
+
+test "KeepAliveOption serializes to a bare string" {
+    const allocator = std.testing.allocator;
+
+    const json = try stringify(KeepAliveOption{ .string = "5m" }, allocator);
+    defer allocator.free(json);
+    try std.testing.expectEqualStrings("\"5m\"", json);
+}
+
+test "KeepAliveOption serializes to a bare number" {
+    const allocator = std.testing.allocator;
+
+    const json = try stringify(KeepAliveOption{ .number = 300 }, allocator);
+    defer allocator.free(json);
+    try std.testing.expectEqualStrings("300", json);
+}
+
+test "Input serializes to a bare string" {
+    const allocator = std.testing.allocator;
+
+    const json = try stringify(Input{ .string = "hello" }, allocator);
+    defer allocator.free(json);
+    try std.testing.expectEqualStrings("\"hello\"", json);
+}
+
+test "Input serializes to a bare array" {
+    const allocator = std.testing.allocator;
+
+    const json = try stringify(Input{ .array = &.{ "a", "b" } }, allocator);
+    defer allocator.free(json);
+    try std.testing.expectEqualStrings("[\"a\",\"b\"]", json);
+}
+
+test "License serializes to a bare string" {
+    const allocator = std.testing.allocator;
+
+    const json = try stringify(License{ .string = "MIT" }, allocator);
+    defer allocator.free(json);
+    try std.testing.expectEqualStrings("\"MIT\"", json);
+}
+
+test "GenerateRequest omits null optional fields" {
+    const allocator = std.testing.allocator;
+
+    const json = try stringify(GenerateRequest{
+        .model = "llama3.2",
+        .prompt = "hi",
+    }, allocator);
+    defer allocator.free(json);
+
+    try std.testing.expectEqualStrings("{\"model\":\"llama3.2\",\"prompt\":\"hi\"}", json);
+}
+
+test "GenerateRequest serializes think and options" {
+    const allocator = std.testing.allocator;
+
+    const json = try stringify(GenerateRequest{
+        .model = "qwen3",
+        .prompt = "hi",
+        .stream = true,
+        .think = .{ .bool = true },
+        .options = .{ .temperature = 0.5 },
+    }, allocator);
+    defer allocator.free(json);
+
+    try std.testing.expectEqualStrings(
+        "{\"model\":\"qwen3\",\"prompt\":\"hi\",\"stream\":true,\"think\":true,\"options\":{\"temperature\":0.5}}",
+        json,
+    );
+}

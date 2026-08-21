@@ -260,3 +260,7 @@ pub fn webFetch(self: *Ollama, request: WebFetchRequest) !Response(WebFetchRespo
 
     return try self.http_client.post(WebFetchResponse, "https://ollama.com/api/web_fetch", body);
 }
+
+test {
+    std.testing.refAllDecls(@This());
+}
