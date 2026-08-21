@@ -1,8 +1,17 @@
+//! A Zig client for the Ollama API.
+//!
+//! This module is the library root: `@import("ollama")` yields the `Ollama`
+//! type, with all request/response types re-exported as `pub const` fields.
+
 const std = @import("std");
 
 const HttpClient = @import("http.zig");
 const types = @import("types.zig");
 
+/// A client for the Ollama API.
+///
+/// Create an instance with `init`, then call methods such as `generate`,
+/// `chat`, `list`, and `version`. Call `deinit` when done.
 const Ollama = @This();
 
 pub const Config = types.Config;
@@ -53,6 +62,9 @@ allocator: std.mem.Allocator,
 http_client: HttpClient,
 config: Config,
 
+/// Creates a new Ollama client.
+///
+/// `config` may be `null` to use the default host `http://localhost:11434`.
 pub fn init(io: std.Io, allocator: std.mem.Allocator, config: ?Config) Ollama {
     const cfg: Config = config orelse .{ .host = "http://localhost:11434" };
     return .{
@@ -62,14 +74,18 @@ pub fn init(io: std.Io, allocator: std.mem.Allocator, config: ?Config) Ollama {
     };
 }
 
+/// Releases resources held by the client.
 pub fn deinit(self: *Ollama) void {
     self.http_client.deinit();
 }
 
+/// Builds a full URL by appending `path` to the configured host.
+/// The caller owns the returned slice.
 fn url(self: *Ollama, path: []const u8) ![]u8 {
     return std.fmt.allocPrint(self.allocator, "{s}{s}", .{ self.config.host, path });
 }
 
+/// Serializes `value` to a JSON string. The caller owns the returned slice.
 fn stringify(self: *Ollama, value: anytype) ![]u8 {
     var aw: std.Io.Writer.Allocating = .init(self.allocator);
     defer aw.deinit();
@@ -83,6 +99,10 @@ fn stringify(self: *Ollama, value: anytype) ![]u8 {
     return try aw.toOwnedSlice();
 }
 
+/// Generates a response from a text prompt.
+///
+/// Returns a `ResponseStream` that yields `GenerateResponse` chunks. Set
+/// `request.stream` to `false` to receive a single response object instead.
 pub fn generate(self: *Ollama, request: GenerateRequest) !ResponseStream(GenerateResponse) {
     const u = try self.url("/api/generate");
     defer self.allocator.free(u);
@@ -93,6 +113,10 @@ pub fn generate(self: *Ollama, request: GenerateRequest) !ResponseStream(Generat
     return try self.http_client.postStream(GenerateResponse, u, body);
 }
 
+/// Chats with the model.
+///
+/// Returns a `ResponseStream` that yields `ChatResponse` chunks. Set
+/// `request.stream` to `false` to receive a single response object instead.
 pub fn chat(self: *Ollama, request: ChatRequest) !ResponseStream(ChatResponse) {
     const u = try self.url("/api/chat");
     defer self.allocator.free(u);
@@ -103,6 +127,9 @@ pub fn chat(self: *Ollama, request: ChatRequest) !ResponseStream(ChatResponse) {
     return try self.http_client.postStream(ChatResponse, u, body);
 }
 
+/// Creates a new model from a stream of data.
+///
+/// Returns a `ResponseStream` that yields `ProgressResponse` chunks.
 pub fn create(self: *Ollama, request: CreateRequest) !ResponseStream(ProgressResponse) {
     const u = try self.url("/api/create");
     defer self.allocator.free(u);
@@ -113,6 +140,9 @@ pub fn create(self: *Ollama, request: CreateRequest) !ResponseStream(ProgressRes
     return try self.http_client.postStream(ProgressResponse, u, body);
 }
 
+/// Pulls a model from the Ollama registry.
+///
+/// Returns a `ResponseStream` that yields `ProgressResponse` chunks.
 pub fn pull(self: *Ollama, request: PullRequest) !ResponseStream(ProgressResponse) {
     const u = try self.url("/api/pull");
     defer self.allocator.free(u);
@@ -123,6 +153,9 @@ pub fn pull(self: *Ollama, request: PullRequest) !ResponseStream(ProgressRespons
     return try self.http_client.postStream(ProgressResponse, u, body);
 }
 
+/// Pushes a model to the Ollama registry.
+///
+/// Returns a `ResponseStream` that yields `ProgressResponse` chunks.
 pub fn push(self: *Ollama, request: PushRequest) !ResponseStream(ProgressResponse) {
     const u = try self.url("/api/push");
     defer self.allocator.free(u);
@@ -133,6 +166,7 @@ pub fn push(self: *Ollama, request: PushRequest) !ResponseStream(ProgressRespons
     return try self.http_client.postStream(ProgressResponse, u, body);
 }
 
+/// Deletes a model from the server.
 pub fn delete(self: *Ollama, request: DeleteRequest) !Response(StatusResponse) {
     const u = try self.url("/api/delete");
     defer self.allocator.free(u);
@@ -143,6 +177,7 @@ pub fn delete(self: *Ollama, request: DeleteRequest) !Response(StatusResponse) {
     return try self.http_client.del(StatusResponse, u, body);
 }
 
+/// Copies a model from one name to another.
 pub fn copy(self: *Ollama, request: CopyRequest) !Response(StatusResponse) {
     const u = try self.url("/api/copy");
     defer self.allocator.free(u);
@@ -153,6 +188,7 @@ pub fn copy(self: *Ollama, request: CopyRequest) !Response(StatusResponse) {
     return try self.http_client.post(StatusResponse, u, body);
 }
 
+/// Lists the models available on the server.
 pub fn list(self: *Ollama) !Response(ListResponse) {
     const u = try self.url("/api/tags");
     defer self.allocator.free(u);
@@ -160,6 +196,7 @@ pub fn list(self: *Ollama) !Response(ListResponse) {
     return try self.http_client.get(ListResponse, u);
 }
 
+/// Shows the metadata of a model.
 pub fn show(self: *Ollama, request: ShowRequest) !Response(ShowResponse) {
     const u = try self.url("/api/show");
     defer self.allocator.free(u);
@@ -170,6 +207,7 @@ pub fn show(self: *Ollama, request: ShowRequest) !Response(ShowResponse) {
     return try self.http_client.post(ShowResponse, u, body);
 }
 
+/// Embeds text input into vectors.
 pub fn embed(self: *Ollama, request: EmbedRequest) !Response(EmbedResponse) {
     const u = try self.url("/api/embed");
     defer self.allocator.free(u);
@@ -180,6 +218,7 @@ pub fn embed(self: *Ollama, request: EmbedRequest) !Response(EmbedResponse) {
     return try self.http_client.post(EmbedResponse, u, body);
 }
 
+/// Embeds a text prompt into a vector.
 pub fn embeddings(self: *Ollama, request: EmbeddingsRequest) !Response(EmbeddingsResponse) {
     const u = try self.url("/api/embeddings");
     defer self.allocator.free(u);
@@ -190,6 +229,7 @@ pub fn embeddings(self: *Ollama, request: EmbeddingsRequest) !Response(Embedding
     return try self.http_client.post(EmbeddingsResponse, u, body);
 }
 
+/// Lists the models currently running on the server.
 pub fn ps(self: *Ollama) !Response(ListResponse) {
     const u = try self.url("/api/ps");
     defer self.allocator.free(u);
@@ -197,6 +237,7 @@ pub fn ps(self: *Ollama) !Response(ListResponse) {
     return try self.http_client.get(ListResponse, u);
 }
 
+/// Returns the Ollama server version.
 pub fn version(self: *Ollama) !Response(VersionResponse) {
     const u = try self.url("/api/version");
     defer self.allocator.free(u);
@@ -204,6 +245,7 @@ pub fn version(self: *Ollama) !Response(VersionResponse) {
     return try self.http_client.get(VersionResponse, u);
 }
 
+/// Performs a web search using the Ollama web search API.
 pub fn webSearch(self: *Ollama, request: WebSearchRequest) !Response(WebSearchResponse) {
     const body = try self.stringify(request);
     defer self.allocator.free(body);
@@ -211,6 +253,7 @@ pub fn webSearch(self: *Ollama, request: WebSearchRequest) !Response(WebSearchRe
     return try self.http_client.post(WebSearchResponse, "https://ollama.com/api/web_search", body);
 }
 
+/// Fetches a single page using the Ollama web fetch API.
 pub fn webFetch(self: *Ollama, request: WebFetchRequest) !Response(WebFetchResponse) {
     const body = try self.stringify(request);
     defer self.allocator.free(body);
