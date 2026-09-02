@@ -113,6 +113,7 @@ pub fn get(self: *HttpClient, comptime T: type, url: []const u8) !Response(T) {
         .method = .GET,
         .extra_headers = self.headers,
         .response_writer = &bw.writer,
+        .keep_alive = false,
     }) catch |err| {
         std.log.scoped(.ollama).err("GET failed: {s}", .{@errorName(err)});
         return err;
@@ -139,6 +140,7 @@ pub fn post(self: *HttpClient, comptime T: type, url: []const u8, body: []const 
         .extra_headers = self.headers,
         .payload = body,
         .response_writer = &bw.writer,
+        .keep_alive = false,
     }) catch |err| {
         std.log.scoped(.ollama).err("POST failed: {s}", .{@errorName(err)});
         return err;
@@ -165,6 +167,7 @@ pub fn del(self: *HttpClient, comptime T: type, url: []const u8, body: []const u
         .extra_headers = self.headers,
         .payload = body,
         .response_writer = &bw.writer,
+        .keep_alive = false,
     }) catch |err| {
         std.log.scoped(.ollama).err("DELETE failed: {s}", .{@errorName(err)});
         return err;
