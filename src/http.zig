@@ -5,6 +5,8 @@
 
 const std = @import("std");
 
+const types = @import("types.zig");
+
 /// A thin wrapper around `std.http.Client` that performs JSON requests and
 /// returns either a fully-buffered `Response` or a streaming `ResponseStream`.
 const HttpClient = @This();
@@ -13,6 +15,8 @@ io: std.Io,
 allocator: std.mem.Allocator,
 client: std.http.Client,
 headers: []const std.http.Header,
+/// See `types.Config.on_request`.
+on_request: ?types.OnRequest = null,
 
 /// Creates a new HTTP client. `headers` are sent with every request.
 pub fn init(io: std.Io, allocator: std.mem.Allocator, headers: []const std.http.Header) HttpClient {
@@ -201,6 +205,9 @@ pub fn postStream(self: *HttpClient, comptime T: type, url: []const u8, body: []
     errdefer req.deinit();
 
     try req.sendBodyComplete(body);
+
+    // Before the wait, so a caller can give up on a response that never starts.
+    if (self.on_request) |observer| observer.call(observer.userdata, req);
 
     var redirect_buf: [0]u8 = undefined;
     var response = try req.receiveHead(&redirect_buf);

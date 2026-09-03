@@ -15,6 +15,7 @@ const types = @import("types.zig");
 const Ollama = @This();
 
 pub const Config = types.Config;
+pub const OnRequest = types.OnRequest;
 pub const Options = types.Options;
 pub const ThinkOption = types.ThinkOption;
 pub const Format = types.Format;
@@ -67,9 +68,11 @@ config: Config,
 /// `config` may be `null` to use the default host `http://localhost:11434`.
 pub fn init(io: std.Io, allocator: std.mem.Allocator, config: ?Config) Ollama {
     const cfg: Config = config orelse .{ .host = "http://localhost:11434" };
+    var http_client = HttpClient.init(io, allocator, cfg.headers orelse &.{});
+    http_client.on_request = cfg.on_request;
     return .{
         .allocator = allocator,
-        .http_client = HttpClient.init(io, allocator, cfg.headers orelse &.{}),
+        .http_client = http_client,
         .config = cfg,
     };
 }

@@ -16,6 +16,16 @@ pub const Config = struct {
 
     /// Additional headers to send with every request.
     headers: ?[]const Http.Header = null,
+
+    /// Told about a streaming request once it is on the wire, before the response
+    /// is waited for, so a caller can break off one the server has not answered.
+    on_request: ?OnRequest = null,
+};
+
+/// See `Config.on_request`. Called on the thread making the request.
+pub const OnRequest = struct {
+    userdata: *anyopaque,
+    call: *const fn (*anyopaque, *std.http.Client.Request) void,
 };
 
 /// Model options that control generation behavior.
